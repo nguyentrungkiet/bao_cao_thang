@@ -1,57 +1,58 @@
-# Script tu dong cai dat Telegram Bot tren Windows VPS
-# Chay voi quyen Administrator: PowerShell -ExecutionPolicy Bypass -File setup_windows.ps1
+# Telegram Bot - Windows VPS Setup Script
+# Run as Administrator: PowerShell -ExecutionPolicy Bypass -File setup_windows.ps1
 
 Write-Host "=========================================="
-Write-Host "Cai dat Telegram Bot tren Windows VPS"
-Write-Host "==========================================" -ForegroundColor Green
+Write-Host "Telegram Bot - Windows VPS Setup"
+Write-Host "=========================================="
 
-# Kiem tra quyen Administrator
+# Check Administrator privileges
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "Can chay script nay voi quyen Administrator!" -ForegroundColor Red
-    Write-Host "Chuot phai PowerShell -> Run as Administrator" -ForegroundColor Yellow
+    Write-Host "ERROR: Administrator privileges required!" -ForegroundColor Red
+    Write-Host "Right-click PowerShell -> Run as Administrator" -ForegroundColor Yellow
     exit 1
 }
 
-# 1. Kiem tra Python
+# Step 1: Check Python
 Write-Host ""
-Write-Host "1. Kiem tra Python..." -ForegroundColor Cyan
+Write-Host "Step 1: Checking Python installation..." -ForegroundColor Cyan
 $pythonInstalled = Get-Command python -ErrorAction SilentlyContinue
 
-if (-not $pythonInstalledua duoc cai dat!" -ForegroundColor Red
-    Write-Host "Vui long tai va cai dat Python 3.11+ tu: https://www.python.org/downloads/" -ForegroundColor Yellow
-    Write-Host "Nho check 'Add Python to PATH' khi cai dat!" -ForegroundColor Yellow
+if (-not $pythonInstalled) {
+    Write-Host "ERROR: Python not found!" -ForegroundColor Red
+    Write-Host "Please download Python 3.11+ from: https://www.python.org/downloads/" -ForegroundColor Yellow
+    Write-Host "Make sure to check 'Add Python to PATH' during installation!" -ForegroundColor Yellow
     exit 1
 }
 
 $pythonVersion = python --version
-Write-Host "Da tim thay: $pythonVersion" -ForegroundColor Green
+Write-Host "Found: $pythonVersion" -ForegroundColor Green
 
-# 2. Kiem tra Git
+# Step 2: Check Git
 Write-Host ""
-Write-Host "2. Kie
-Write-Host "`n2. Kiểm tra Git..." -ForegroundColor Cyan
+Write-Host "Step 2: Checking Git installation..." -ForegroundColor Cyan
 $gitInstalled = Get-Command git -ErrorAction SilentlyContinue
 
-if (-not $gitInstalledua duoc cai dat!" -ForegroundColor Red
-    Write-Host "Vui long tai va cai dat Git tu: https://git-scm.com/download/win" -ForegroundColor Yellow
+if (-not $gitInstalled) {
+    Write-Host "ERROR: Git not found!" -ForegroundColor Red
+    Write-Host "Please download Git from: https://git-scm.com/download/win" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "Git da duoc cai dat" -ForegroundColor Green
+Write-Host "Git is installed" -ForegroundColor Green
 
-# 3. Clone repository
+# Step 3: Clone repository
 Write-Host ""
-Write-Host "3. Clone repository tu
-Write-Host "`n3. Clone repository từ GitHub..." -ForegroundColor Cyan
+Write-Host "Step 3: Cloning repository from GitHub..." -ForegroundColor Cyan
 $installPath = "C:\BaoCaoBot"
 
-if (Test-Path $insu muc $installPath da ton tai" -ForegroundColor Yellow
-    $response = Read-Host "Xoa va clone lai? (y/n)"
+if (Test-Path $installPath) {
+    Write-Host "Directory $installPath already exists" -ForegroundColor Yellow
+    $response = Read-Host "Delete and clone again? (y/n)"
     if ($response -eq 'y') {
         Remove-Item -Path $installPath -Recurse -Force
     } else {
-        Write-Host "Su dung thu muc hien tai" -ForegroundColor Yellow
+        Write-Host "Using existing directory" -ForegroundColor Yellow
         Set-Location $installPath
     }
 }
@@ -61,43 +62,45 @@ if (-not (Test-Path $installPath)) {
     Set-Location $installPath
 }
 
-# 4. Tao virtual environment
+# Step 4: Create virtual environment
 Write-Host ""
-Write-Host "4. Tavironment
-Write-Host "`n4. Tạo virtual environment..." -ForegroundColor Cyan
-if (Test-Path ".venv") {da ton tai, su dung lai" -ForegroundColor Yellow
+Write-Host "Step 4: Creating virtual environment..." -ForegroundColor Cyan
+if (Test-Path ".venv") {
+    Write-Host "Virtual environment already exists, reusing it" -ForegroundColor Yellow
 } else {
     python -m venv .venv
 }
 
-# 5. Activate va cai dat dependencies
+# Step 5: Install Python packages
 Write-Host ""
-Write-Host "5. Cai dat Python packages..." -ForegroundColor Cyan
+Write-Host "Step 5: Installing Python packages..." -ForegroundColor Cyan
 & ".\.venv\Scripts\Activate.ps1"
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# 6. Tao thu muc
+# Step 6: Create directories
 Write-Host ""
-Write-Host "6. Tao thu muc can thie
-Write-Host "`n6. Tạo thư mục cần thiết..." -ForegroundColor Cyan
-New-Itai NSSM (Non-Sucking Service Manager)
-Write-Host ""
-Write-Host "7. Tai NSSM de taorce -Path "reports" | Out-Null
+Write-Host "Step 6: Creating required directories..." -ForegroundColor Cyan
+New-Item -ItemType Directory -Force -Path "logs" | Out-Null
+New-Item -ItemType Directory -Force -Path "reports" | Out-Null
 
-# 7. Tải NSSM (Non-Sucking Service Manager)
-Write-Host "`n7. Tải NSSM để tạo Windows Service..." -ForegroundColor Cyan
+# Step 7: Download NSSM (Windows Service Manager)
+Write-Host ""
+Write-Host "Step 7: Downloading NSSM for Windows Service..." -ForegroundColor Cyan
 $nssmPath = "$installPath\nssm"
 if (-not (Test-Path "$nssmPath\nssm.exe")) {
     New-Item -ItemType Directory -Force -Path $nssmPath | Out-Null
     
-    $nssmUrl = "Dang tai NSSM..." -ForegroundColor Yellow
+    $nssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
+    $nssmZip = "$env:TEMP\nssm.zip"
+    
+    Write-Host "Downloading NSSM..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip
     
-    Write-Host "Giai nen NSSM..." -ForegroundColor Yellow
+    Write-Host "Extracting NSSM..." -ForegroundColor Yellow
     Expand-Archive -Path $nssmZip -DestinationPath $env:TEMP -Force
     
-    # Copy nssm.exe phu hop voi he thong
+    # Copy appropriate nssm.exe
     if ([Environment]::Is64BitOperatingSystem) {
         Copy-Item "$env:TEMP\nssm-2.24\win64\nssm.exe" "$nssmPath\nssm.exe"
     } else {
@@ -107,26 +110,23 @@ if (-not (Test-Path "$nssmPath\nssm.exe")) {
     Remove-Item $nssmZip -Force
     Remove-Item "$env:TEMP\nssm-2.24" -Recurse -Force
     
-    Write-Host "NSSM da duoc cai dat" -ForegroundColor Green
+    Write-Host "NSSM installed successfully" -ForegroundColor Green
 } else {
-    Write-Host "NSSM da ton tai" -ForegroundColor Green
+    Write-Host "NSSM already exists" -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host "=========================================="
-Write-Host "CAI DAT HOAN TAT!" -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
+Write-Host "SETUP COMPLETED!"
+Write-Host "=========================================="
 
-Write-Host ""ao thu muc: $installPath"
-Write-Host "2. Tao file .env (copy tu .env.example va dien thong tin):"
+Write-Host ""
+Write-Host "NEXT STEPS:" -ForegroundColor Yellow
+Write-Host "1. Copy credentials.json file to: $installPath"
+Write-Host "2. Create .env file (copy from .env.example and fill in values):"
 Write-Host "   notepad .env"
-Write-Host "3. Cai dat Windows Service:"
+Write-Host "3. Install Windows Service:"
 Write-Host "   PowerShell -ExecutionPolicy Bypass -File deploy\install_service_windows.ps1"
-Write-Host "4. Khoi dole credentials.json vào thư mục: $installPath"
-Write-Host "2. Tạo file .env (copy từ .env.example và điền thông tin):"
-Write-Host "   notepad .env"
-Write-Host "3. Cài đặt Windows Service:"
-Write-Host "   PowerShell -ExecutionPolicy Bypass -File deploy\install_service_windows.ps1"
-Write-Host "4. Khởi động bot:"
+Write-Host "4. Start the bot:"
 Write-Host "   nssm\nssm.exe start TelegramBot"
 Write-Host ""
