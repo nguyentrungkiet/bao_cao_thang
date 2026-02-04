@@ -1,0 +1,19 @@
+[Unit]
+Description=Telegram Bot - Work Progress Reporter
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/home/your-username/bao_cao_thang
+Environment="PATH=/home/your-username/bao_cao_thang/.venv/bin"
+ExecStart=/home/your-username/bao_cao_thang/.venv/bin/python -m app.main
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/home/your-username/bao_cao_thang/logs/systemd.log
+StandardError=append:/home/your-username/bao_cao_thang/logs/systemd-error.log
+
+[Install]
+WantedBy=multi-user.target
