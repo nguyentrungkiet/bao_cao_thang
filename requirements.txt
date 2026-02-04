@@ -1,0 +1,27 @@
+# Telegram Bot
+python-telegram-bot[job-queue]==20.8
+
+# Google Sheets
+gspread==6.0.2
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+
+# Environment & Configuration
+python-dotenv==1.0.1
+
+# Timezone handling
+pytz==2024.1
+
+# Date parsing
+python-dateutil==2.8.2
+
+# Word document generation
+python-docx==1.1.2
+
+# Testing
+pytest==8.0.0
+pytest-asyncio==0.23.4
+
+# Logging
+colorlog==6.8.2

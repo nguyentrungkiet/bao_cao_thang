@@ -1,0 +1,377 @@
+"""
+Reporting module - builds formatted messages for Telegram.
+"""
+
+import logging
+from datetime import date
+from typing import Optional
+from app.config import config
+from app.models import Task, TaskStatus, TasksByPerson
+from app.rules import get_current_date, group_tasks_by_status, group_tasks_by_person
+
+logger = logging.getLogger(__name__)
+
+
+def format_date(d: Optional[date]) -> str:
+    """Format date for display."""
+    if d is None:
+        return "Chưa có"
+    return d.strftime("%d/%m/%Y")
+
+
+def truncate_text(text: str, max_length: int = 50) -> str:
+    """Truncate text if too long."""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length-3] + "..."
+
+
+def escape_markdown(text: str) -> str:
+    """Escape special characters for Telegram MarkdownV2 (if needed)."""
+    # For now, just return as-is. Can add escaping if using MarkdownV2
+    return text
+
+
+def build_task_line(task: Task, show_person: bool = True, show_days_overdue: bool = False) -> str:
+    """
+    Build a single line for a task.
+    
+    Args:
+        task: Task to format
+        show_person: Whether to include person name
+        show_days_overdue: Whether to show days overdue
+    """
+    parts = []
+    
+    if show_person and task.ho_ten:
+        parts.append(f"👤 {task.ho_ten}")
+    
+    # Content (truncated)
+    content = truncate_text(task.noi_dung, 60)
+    parts.append(f"📝 {content}")
+    
+    # Deadline
+    if task.deadline:
+        parts.append(f"📅 {format_date(task.deadline)}")
+    
+    # Days overdue
+    if show_days_overdue and task.days_overdue > 0:
+        parts.append(f"⚠️ Trễ {task.days_overdue} ngày")
+    
+    return " | ".join(parts)
+
+
+def build_daily_report(tasks: list[Task]) -> str:
+    """
+    Build daily morning report (6:00 AM).
+    
+    Sections:
+    - Summary
+    - OVERDUE
+    - DUE_TODAY
+    - DUE_TOMORROW
+    - DUE_2_3_DAYS
+    - NO_DEADLINE
+    - ON_TRACK (summary only)
+    """
+    today = get_current_date()
+    incomplete_tasks = [t for t in tasks if not t.is_completed]
+    groups = group_tasks_by_status(incomplete_tasks)
+    
+    max_items = config.MAX_DISPLAY_ITEMS
+    
+    lines = []
+    lines.append("=" * 50)
+    lines.append("📊 BÁO CÁO TIẾN ĐỘ CÔNG VIỆC HÀNG NGÀY")
+    lines.append(f"📅 Ngày: {format_date(today)}")
+    lines.append("=" * 50)
+    lines.append("")
+    
+    # Summary
+    lines.append(f"📌 Tổng số việc chưa hoàn thành: {len(incomplete_tasks)}")
+    lines.append("")
+    
+    # OVERDUE
+    overdue = groups[TaskStatus.OVERDUE]
+    if overdue:
+        lines.append("🚨 CÔNG VIỆC TRỄ HẠN")
+        lines.append(f"   Tổng: {len(overdue)} việc")
+        lines.append("")
+        for i, task in enumerate(overdue[:max_items], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True, show_days_overdue=True)}")
+        if len(overdue) > max_items:
+            lines.append(f"   ... và {len(overdue) - max_items} việc khác")
+        lines.append("")
+    
+    # DUE_TODAY
+    due_today = groups[TaskStatus.DUE_TODAY]
+    if due_today:
+        lines.append("⏰ HÔM NAY PHẢI HOÀN THÀNH")
+        lines.append(f"   Tổng: {len(due_today)} việc")
+        lines.append("")
+        for i, task in enumerate(due_today[:max_items], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_today) > max_items:
+            lines.append(f"   ... và {len(due_today) - max_items} việc khác")
+        lines.append("")
+    
+    # DUE_TOMORROW
+    due_tomorrow = groups[TaskStatus.DUE_TOMORROW]
+    if due_tomorrow:
+        lines.append("📌 NGÀY MAI PHẢI HOÀN THÀNH")
+        lines.append(f"   Tổng: {len(due_tomorrow)} việc")
+        lines.append("")
+        for i, task in enumerate(due_tomorrow[:max_items], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_tomorrow) > max_items:
+            lines.append(f"   ... và {len(due_tomorrow) - max_items} việc khác")
+        lines.append("")
+    
+    # DUE_2_3_DAYS
+    due_2_3 = groups[TaskStatus.DUE_2_3_DAYS]
+    if due_2_3:
+        lines.append("⚠️ SẮP TỚI HẠN (2-3 NGÀY)")
+        lines.append(f"   Tổng: {len(due_2_3)} việc")
+        lines.append("")
+        for i, task in enumerate(due_2_3[:max_items], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_2_3) > max_items:
+            lines.append(f"   ... và {len(due_2_3) - max_items} việc khác")
+        lines.append("")
+    
+    # NO_DEADLINE
+    no_deadline = groups[TaskStatus.NO_DEADLINE]
+    if no_deadline:
+        lines.append("❓ CHƯA CÓ DEADLINE")
+        lines.append(f"   Tổng: {len(no_deadline)} việc (cần bổ sung deadline)")
+        lines.append("")
+        for i, task in enumerate(no_deadline[:5], 1):  # Show fewer
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(no_deadline) > 5:
+            lines.append(f"   ... và {len(no_deadline) - 5} việc khác")
+        lines.append("")
+    
+    # ON_TRACK (summary only)
+    on_track = groups[TaskStatus.ON_TRACK]
+    if on_track:
+        lines.append(f"✅ Đang đúng tiến độ: {len(on_track)} việc")
+        lines.append("")
+    
+    lines.append("=" * 50)
+    lines.append("🤖 Báo cáo tự động từ Telegram Bot")
+    
+    return "\n".join(lines)
+
+
+def build_weekly_report(tasks: list[Task]) -> str:
+    """
+    Build weekly report (Friday 5:00 PM).
+    
+    Sections:
+    - Summary
+    - Top 10 most overdue tasks
+    - Statistics by person
+    """
+    today = get_current_date()
+    incomplete_tasks = [t for t in tasks if not t.is_completed]
+    groups = group_tasks_by_status(incomplete_tasks)
+    
+    lines = []
+    lines.append("=" * 50)
+    lines.append("📊 BÁO CÁO TUẦN")
+    lines.append(f"📅 Ngày: {format_date(today)}")
+    lines.append("=" * 50)
+    lines.append("")
+    
+    # Summary
+    lines.append(f"📌 Tổng số việc chưa hoàn thành: {len(incomplete_tasks)}")
+    lines.append("")
+    
+    # Overdue summary
+    overdue = groups[TaskStatus.OVERDUE]
+    if overdue:
+        lines.append("🚨 CÔNG VIỆC TRỄ HẠN")
+        lines.append(f"   Tổng: {len(overdue)} việc")
+        lines.append("")
+        lines.append("   Top 10 việc trễ nhiều nhất:")
+        for i, task in enumerate(overdue[:10], 1):
+            lines.append(f"   {i}. {build_task_line(task, show_person=True, show_days_overdue=True)}")
+        lines.append("")
+    
+    # Statistics by person
+    lines.append("👥 THỐNG KÊ THEO NGƯỜI")
+    lines.append("")
+    
+    by_person = group_tasks_by_person(incomplete_tasks)
+    
+    # Create sorted list of people by total incomplete tasks
+    person_stats = []
+    for name, person_tasks in by_person.items():
+        overdue_count = sum(1 for t in person_tasks if t.status == TaskStatus.OVERDUE)
+        due_soon_count = sum(1 for t in person_tasks if t.status in [
+            TaskStatus.DUE_TODAY, TaskStatus.DUE_TOMORROW, TaskStatus.DUE_2_3_DAYS
+        ])
+        person_stats.append({
+            'name': name,
+            'total': len(person_tasks),
+            'overdue': overdue_count,
+            'due_soon': due_soon_count
+        })
+    
+    # Sort by overdue count (descending), then by total
+    person_stats.sort(key=lambda x: (x['overdue'], x['total']), reverse=True)
+    
+    for stat in person_stats:
+        lines.append(f"👤 {stat['name']}")
+        lines.append(f"   • Tổng chưa hoàn thành: {stat['total']}")
+        lines.append(f"   • Trễ hạn: {stat['overdue']}")
+        lines.append(f"   • Sắp tới hạn (1-3 ngày): {stat['due_soon']}")
+        lines.append("")
+    
+    lines.append("=" * 50)
+    lines.append("📝 LƯU Ý: Báo cáo tuần là ảnh chụp hiện trạng")
+    lines.append("   (Sheet chưa có cột 'Ngày hoàn thành' để thống kê việc hoàn thành trong tuần)")
+    lines.append("=" * 50)
+    lines.append("🤖 Báo cáo tự động từ Telegram Bot")
+    
+    return "\n".join(lines)
+
+
+def build_today_tasks_report(tasks: list[Task]) -> str:
+    """Build report for 'Công việc hôm nay' button."""
+    today = get_current_date()
+    incomplete_tasks = [t for t in tasks if not t.is_completed]
+    groups = group_tasks_by_status(incomplete_tasks)
+    
+    lines = []
+    lines.append("📌 CÔNG VIỆC HÔM NAY")
+    lines.append(f"📅 {format_date(today)}")
+    lines.append("")
+    
+    # Overdue
+    overdue = groups[TaskStatus.OVERDUE]
+    if overdue:
+        lines.append(f"🚨 Trễ hạn: {len(overdue)} việc")
+        for i, task in enumerate(overdue[:10], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True, show_days_overdue=True)}")
+        if len(overdue) > 10:
+            lines.append(f"... và {len(overdue) - 10} việc khác")
+        lines.append("")
+    
+    # Due today
+    due_today = groups[TaskStatus.DUE_TODAY]
+    if due_today:
+        lines.append(f"⏰ Hôm nay: {len(due_today)} việc")
+        for i, task in enumerate(due_today[:10], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_today) > 10:
+            lines.append(f"... và {len(due_today) - 10} việc khác")
+        lines.append("")
+    
+    # Due tomorrow (optional)
+    due_tomorrow = groups[TaskStatus.DUE_TOMORROW]
+    if due_tomorrow:
+        lines.append(f"📌 Ngày mai: {len(due_tomorrow)} việc")
+        for i, task in enumerate(due_tomorrow[:5], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_tomorrow) > 5:
+            lines.append(f"... và {len(due_tomorrow) - 5} việc khác")
+        lines.append("")
+    
+    if not overdue and not due_today:
+        lines.append("✅ Không có việc trễ hạn hoặc đến hạn hôm nay!")
+    
+    return "\n".join(lines)
+
+
+def build_overdue_by_person_report(tasks: list[Task]) -> str:
+    """Build report for 'Ai đang trễ deadline' button."""
+    incomplete_tasks = [t for t in tasks if not t.is_completed]
+    overdue_tasks = [t for t in incomplete_tasks if t.status == TaskStatus.OVERDUE]
+    
+    if not overdue_tasks:
+        return "✅ Không có công việc nào trễ hạn!"
+    
+    lines = []
+    lines.append("⏰ AI ĐANG TRỄ DEADLINE")
+    lines.append("")
+    
+    by_person = group_tasks_by_person(overdue_tasks)
+    
+    # Sort by number of overdue tasks
+    sorted_people = sorted(by_person.items(), key=lambda x: len(x[1]), reverse=True)
+    
+    for name, person_tasks in sorted_people:
+        lines.append(f"👤 {name}: {len(person_tasks)} việc trễ")
+        for i, task in enumerate(person_tasks[:5], 1):
+            lines.append(f"   {i}. {build_task_line(task, show_person=False, show_days_overdue=True)}")
+        if len(person_tasks) > 5:
+            lines.append(f"   ... và {len(person_tasks) - 5} việc khác")
+        lines.append("")
+    
+    return "\n".join(lines)
+
+
+def build_due_soon_report(tasks: list[Task]) -> str:
+    """Build report for 'Sắp tới hạn' button."""
+    incomplete_tasks = [t for t in tasks if not t.is_completed]
+    groups = group_tasks_by_status(incomplete_tasks)
+    
+    lines = []
+    lines.append("⚠️ SẮP TỚI HẠN (1-3 NGÀY)")
+    lines.append("")
+    
+    # Due tomorrow
+    due_tomorrow = groups[TaskStatus.DUE_TOMORROW]
+    if due_tomorrow:
+        lines.append(f"📌 Ngày mai: {len(due_tomorrow)} việc")
+        for i, task in enumerate(due_tomorrow[:10], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_tomorrow) > 10:
+            lines.append(f"... và {len(due_tomorrow) - 10} việc khác")
+        lines.append("")
+    
+    # Due in 2-3 days
+    due_2_3 = groups[TaskStatus.DUE_2_3_DAYS]
+    if due_2_3:
+        lines.append(f"📅 2-3 ngày nữa: {len(due_2_3)} việc")
+        for i, task in enumerate(due_2_3[:10], 1):
+            lines.append(f"{i}. {build_task_line(task, show_person=True)}")
+        if len(due_2_3) > 10:
+            lines.append(f"... và {len(due_2_3) - 10} việc khác")
+        lines.append("")
+    
+    if not due_tomorrow and not due_2_3:
+        lines.append("✅ Không có việc nào sắp tới hạn trong 1-3 ngày!")
+    
+    return "\n".join(lines)
+
+
+def build_search_results(tasks: list[Task], keyword: str) -> str:
+    """Build report for search results."""
+    if not tasks:
+        return f"🔍 Không tìm thấy kết quả cho: '{keyword}'"
+    
+    lines = []
+    lines.append(f"🔍 KẾT QUẢ TÌM KIẾM: '{keyword}'")
+    lines.append(f"   Tìm thấy: {len(tasks)} việc")
+    lines.append("")
+    
+    for i, task in enumerate(tasks[:15], 1):
+        lines.append(f"{i}. {build_task_line(task, show_person=True, show_days_overdue=(task.status == TaskStatus.OVERDUE))}")
+        if task.status != TaskStatus.NO_DEADLINE:
+            status_text = {
+                TaskStatus.OVERDUE: "🚨 Trễ hạn",
+                TaskStatus.DUE_TODAY: "⏰ Hôm nay",
+                TaskStatus.DUE_TOMORROW: "📌 Ngày mai",
+                TaskStatus.DUE_2_3_DAYS: "⚠️ Sắp tới",
+                TaskStatus.ON_TRACK: "✅ Đúng tiến độ"
+            }.get(task.status, "")
+            if status_text:
+                lines.append(f"   {status_text}")
+        lines.append("")
+    
+    if len(tasks) > 15:
+        lines.append(f"... và {len(tasks) - 15} kết quả khác")
+    
+    return "\n".join(lines)
