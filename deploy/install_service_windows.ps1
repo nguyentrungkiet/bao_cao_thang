@@ -1,61 +1,62 @@
-# Script cài đặt Telegram Bot như Windows Service
-# Chạy với quyền Administrator
+# Script cai dat Telegram Bot nhu Windows Service
+# Chay voi quyen Administrator
 
 Write-Host "=========================================="
-Write-Host "Cài đặt Telegram Bot Windows Service"
+Write-Host "Cai dat Telegram Bot Windows Service"
 Write-Host "==========================================" -ForegroundColor Green
 
-# Kiểm tra quyền Administrator
+# Kiem tra quyen Administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "Cần chạy script này với quyền Administrator!" -ForegroundColor Red
+    Write-Host "Can chay script nay voi quyen Administrator!" -ForegroundColor Red
     exit 1
 }
 
 $installPath = "C:\BaoCaoBot"
 $serviceName = "TelegramBot"
 
-# Kiểm tra thư mục
+# Kiem tra thu muc
 if (-not (Test-Path $installPath)) {
-    Write-Host "Thư mục $installPath không tồn tại!" -ForegroundColor Red
-    Write-Host "Vui lòng chạy setup_windows.ps1 trước" -ForegroundColor Yellow
+    Write-Host "Thu muc $installPath khong ton tai!" -ForegroundColor Red
+    Write-Host "Vui long chay setup_windows.ps1 truoc" -ForegroundColor Yellow
     exit 1
 }
 
 Set-Location $installPath
 
-# Kiểm tra credentials.json và .env
+# Kiem tra credentials.json va .env
 if (-not (Test-Path "credentials.json")) {
-    Write-Host "Chưa có file credentials.json!" -ForegroundColor Red
-    Write-Host "Vui lòng copy file này vào thư mục $installPath" -ForegroundColor Yellow
+    Write-Host "Chua co file credentials.json!" -ForegroundColor Red
+    Write-Host "Vui long copy file nay vao thu muc $installPath" -ForegroundColor Yellow
     exit 1
 }
 
 if (-not (Test-Path ".env")) {
-    Write-Host "Chưa có file .env!" -ForegroundColor Red
-    Write-Host "Vui lòng tạo file .env từ .env.example" -ForegroundColor Yellow
+    Write-Host "Chua co file .env!" -ForegroundColor Red
+    Write-Host "Vui long tao file .env tu .env.example" -ForegroundColor Yellow
     exit 1
 }
 
-# Kiểm tra NSSM
+# Kiem tra NSSM
 $nssmPath = "$installPath\nssm\nssm.exe"
 if (-not (Test-Path $nssmPath)) {
-    Write-Host "NSSM chưa được cài đặt!" -ForegroundColor Red
-    Write-Host "Vui lòng chạy setup_windows.ps1 trước" -ForegroundColor Yellow
+    Write-Host "NSSM chua duoc cai dat!" -ForegroundColor Red
+    Write-Host "Vui long chay setup_windows.ps1 truoc" -ForegroundColor Yellow
     exit 1
 }
 
-# Xóa service cũ nếu có
+# Xoa service cu neu co
 $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($existingService) {
-    Write-Host "Service $serviceName đã tồn tại, đang xóa..." -ForegroundColor Yellow
+    Write-Host "Service $serviceName da ton tai, dang xoa..." -ForegroundColor Yellow
     & $nssmPath stop $serviceName
     Start-Sleep -Seconds 2
     & $nssmPath remove $serviceName confirm
 }
 
-# Cài đặt service mới
-Write-Host "`nĐang cài đặt Windows Service..." -ForegroundColor Cyan
+# Cai dat service moi
+Write-Host ""
+Write-Host "Dang cai dat Windows Service..." -ForegroundColor Cyan
 
 $pythonPath = "$installPath\.venv\Scripts\python.exe"
 $appPath = "$installPath\app\main.py"
@@ -70,37 +71,41 @@ $appPath = "$installPath\app\main.py"
 & $nssmPath set $serviceName AppStdout "$installPath\logs\service.log"
 & $nssmPath set $serviceName AppStderr "$installPath\logs\service-error.log"
 
-# Cấu hình restart
+# Cau hinh restart
 & $nssmPath set $serviceName AppExit Default Restart
 & $nssmPath set $serviceName AppRestartDelay 5000
 
-Write-Host "`n=========================================="
-Write-Host "CÀI ĐẶT SERVICE HOÀN TẤT!" -ForegroundColor Green
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "CAI DAT SERVICE HOAN TAT!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-Write-Host "`nCác lệnh quản lý service:" -ForegroundColor Yellow
-Write-Host "  nssm\nssm.exe start $serviceName      # Khởi động bot"
-Write-Host "  nssm\nssm.exe stop $serviceName       # Dừng bot"
-Write-Host "  nssm\nssm.exe restart $serviceName    # Khởi động lại bot"
-Write-Host "  nssm\nssm.exe status $serviceName     # Xem trạng thái"
 Write-Host ""
-Write-Host "Hoặc dùng Windows Services:" -ForegroundColor Yellow
+Write-Host "Cac lenh quan ly service:" -ForegroundColor Yellow
+Write-Host "  nssm\nssm.exe start $serviceName      # Khoi dong bot"
+Write-Host "  nssm\nssm.exe stop $serviceName       # Dung bot"
+Write-Host "  nssm\nssm.exe restart $serviceName    # Khoi dong lai bot"
+Write-Host "  nssm\nssm.exe status $serviceName     # Xem trang thai"
+Write-Host ""
+Write-Host "Hoac dung Windows Services:" -ForegroundColor Yellow
 Write-Host "  services.msc" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Xem logs:" -ForegroundColor Yellow
 Write-Host "  Get-Content logs\bot.log -Tail 50 -Wait"
 Write-Host ""
 
-# Hỏi có muốn khởi động ngay không
-$response = Read-Host "Khởi động bot ngay bây giờ? (y/n)"
+# Hoi co muon khoi dong ngay khong
+$response = Read-Host "Khoi dong bot ngay bay gio? (y/n)"
 if ($response -eq 'y') {
-    Write-Host "`nĐang khởi động bot..." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Dang khoi dong bot..." -ForegroundColor Cyan
     & $nssmPath start $serviceName
     Start-Sleep -Seconds 3
     
     $status = & $nssmPath status $serviceName
-    Write-Host "Trạng thái: $status" -ForegroundColor Green
+    Write-Host "Trang thai: $status" -ForegroundColor Green
     
-    Write-Host "`nXem logs để kiểm tra:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Xem logs de kiem tra:" -ForegroundColor Yellow
     Write-Host "  Get-Content logs\bot.log -Tail 20"
 }
