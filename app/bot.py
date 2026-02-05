@@ -254,6 +254,18 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def search_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle search button from persistent menu."""
+    await update.message.reply_text(
+        "🔎 TÌM KIẾM CÔNG VIỆC\n\n"
+        "Vui lòng nhập từ khóa để tìm kiếm trong:\n"
+        "• Tên người thực hiện\n"
+        "• Nội dung công việc\n\n"
+        "Gửi /cancel để hủy."
+    )
+    return WAITING_FOR_KEYWORD
+
+
 async def search_keyword_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle keyword input for search."""
     chat_id = update.effective_chat.id
@@ -518,7 +530,7 @@ def setup_handlers(application):
     search_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(menu_callback, pattern="^menu_search$"),
-            MessageHandler(filters.TEXT & filters.Regex("^🔎 Tìm kiếm$"), search_start)
+            MessageHandler(filters.TEXT & filters.Regex("^🔎 Tìm kiếm$"), search_button_handler)
         ],
         states={
             WAITING_FOR_KEYWORD: [
