@@ -158,12 +158,14 @@ class WordReportGenerator:
                 # Calculate early/late days if both dates exist
                 if task.deadline and task.ngay_hoan_thanh:
                     days_diff = (task.deadline - task.ngay_hoan_thanh).days
-                    if days_diff > 0:
-                        ngay_ht_text += f"\n(Sớm {days_diff} ngày)"
-                    elif days_diff < 0:
-                        ngay_ht_text += f"\n(Trễ {abs(days_diff)} ngày)"
-                    else:
-                        ngay_ht_text += "\n(Đúng hạn)"
+                    # Only show early/late if difference is reasonable (<= 90 days)
+                    if abs(days_diff) <= 90:
+                        if days_diff > 0:
+                            ngay_ht_text += f"\n(Sớm {days_diff} ngày)"
+                        elif days_diff < 0:
+                            ngay_ht_text += f"\n(Trễ {abs(days_diff)} ngày)"
+                        else:
+                            ngay_ht_text += "\n(Đúng hạn)"
                 row_cells[6].text = ngay_ht_text
             else:
                 row_cells[6].text = ''

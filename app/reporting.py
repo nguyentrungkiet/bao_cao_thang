@@ -3,7 +3,7 @@ Reporting module - builds formatted messages for Telegram.
 """
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from app.config import config
 from app.models import Task, TaskStatus, TasksByPerson
@@ -59,12 +59,18 @@ def build_task_line(task: Task, show_person: bool = True, show_days_overdue: boo
         # For completed tasks, show early/late status
         days_diff = (task.deadline - task.ngay_hoan_thanh).days
         completion_date = format_date(task.ngay_hoan_thanh)
-        if days_diff > 0:
-            parts.append(f"✅ Hoàn thành {completion_date} (Sớm {days_diff} ngày)")
-        elif days_diff < 0:
-            parts.append(f"✅ Hoàn thành {completion_date} (Trễ {abs(days_diff)} ngày)")
+        # Only show early/late if difference is reasonable (within 90 days)
+        # Larger differences likely indicate data entry errors
+        if abs(days_diff) <= 90:
+            if days_diff > 0:
+                parts.append(f"✅ Hoàn thành {completion_date} (Sớm {days_diff} ngày)")
+            elif days_diff < 0:
+                parts.append(f"✅ Hoàn thành {completion_date} (Trễ {abs(days_diff)} ngày)")
+            else:
+                parts.append(f"✅ Hoàn thành {completion_date} (Đúng hạn)")
         else:
-            parts.append(f"✅ Hoàn thành {completion_date} (Đúng hạn)")
+            # Date difference too large - likely data error, just show completion date
+            parts.append(f"✅ Hoàn thành {completion_date}")
     elif task.is_completed and task.ngay_hoan_thanh:
         # Has completion date but no deadline
         parts.append(f"✅ Hoàn thành {format_date(task.ngay_hoan_thanh)}")
