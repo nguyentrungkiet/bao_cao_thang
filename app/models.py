@@ -29,6 +29,8 @@ class Task:
     deadline: Optional[date]  # Deadline (parsed)
     deadline_raw: str  # Deadline (raw string from sheet)
     ket_qua: str  # Kết quả / Tiến độ
+    ngay_hoan_thanh: Optional[date]  # Ngày hoàn thành (parsed)
+    ngay_hoan_thanh_raw: str  # Ngày hoàn thành (raw string from sheet)
     ghi_chu: str  # Ghi chú
     
     # Computed fields
@@ -44,6 +46,7 @@ class Task:
         self.ket_qua = self.ket_qua.strip()
         self.ghi_chu = self.ghi_chu.strip()
         self.deadline_raw = self.deadline_raw.strip()
+        self.ngay_hoan_thanh_raw = self.ngay_hoan_thanh_raw.strip()
         
         # Check if completed
         self._check_completion()

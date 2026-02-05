@@ -168,23 +168,61 @@ def build_weekly_report(tasks: list[Task]) -> str:
     Build weekly report (Friday 5:00 PM).
     
     Sections:
+    - Completed this week
     - Summary
     - Top 10 most overdue tasks
     - Statistics by person
     """
     today = get_current_date()
+    
+    # Get week start (Monday) and week end (Sunday)
+    week_start = today - timedelta(days=today.weekday())  # Monday
+    week_end = week_start + timedelta(days=6)  # Sunday
+    
+    # Filter tasks completed this week
+    completed_this_week = [
+        t for t in tasks 
+        if t.ngay_hoan_thanh and week_start <= t.ngay_hoan_thanh <= week_end
+    ]
+    
+    # Group completed tasks by person
+    completed_by_person = {}
+    for task in completed_this_week:
+        name = task.ho_ten
+        if name not in completed_by_person:
+            completed_by_person[name] = []
+        completed_by_person[name].append(task)
+    
+    # Get incomplete tasks for current status
     incomplete_tasks = [t for t in tasks if not t.is_completed]
     groups = group_tasks_by_status(incomplete_tasks)
     
     lines = []
     lines.append("=" * 50)
     lines.append("📊 BÁO CÁO TUẦN")
-    lines.append(f"📅 Ngày: {format_date(today)}")
+    lines.append(f"📅 Tuần từ {format_date(week_start)} đến {format_date(week_end)}")
     lines.append("=" * 50)
     lines.append("")
     
-    # Summary
-    lines.append(f"📌 Tổng số việc chưa hoàn thành: {len(incomplete_tasks)}")
+    # Completed this week summary
+    lines.append(f"✅ HOÀN THÀNH TRONG TUẦN: {len(completed_this_week)} việc")
+    lines.append("")
+    
+    if completed_this_week:
+        lines.append("👥 Thống kê theo người:")
+        for name in sorted(completed_by_person.keys()):
+            person_tasks = completed_by_person[name]
+            lines.append(f"   👤 {name}: {len(person_tasks)} việc")
+            for task in person_tasks[:5]:  # Show first 5
+                completion_date = format_date(task.ngay_hoan_thanh) if task.ngay_hoan_thanh else "N/A"
+                lines.append(f"      • {task.noi_dung[:50]}... (Hoàn thành: {completion_date})")
+            if len(person_tasks) > 5:
+                lines.append(f"      ... và {len(person_tasks) - 5} việc khác")
+        lines.append("")
+    
+    # Current status summary
+    lines.append(f"📌 TÌNH TRẠNG HIỆN TẠI")
+    lines.append(f"   • Chưa hoàn thành: {len(incomplete_tasks)} việc")
     lines.append("")
     
     # Overdue summary
@@ -198,8 +236,8 @@ def build_weekly_report(tasks: list[Task]) -> str:
             lines.append(f"   {i}. {build_task_line(task, show_person=True, show_days_overdue=True)}")
         lines.append("")
     
-    # Statistics by person
-    lines.append("👥 THỐNG KÊ THEO NGƯỜI")
+    # Statistics by person for incomplete tasks
+    lines.append("👥 THỐNG KÊ CHƯA HOÀN THÀNH THEO NGƯỜI")
     lines.append("")
     
     by_person = group_tasks_by_person(incomplete_tasks)
@@ -228,9 +266,6 @@ def build_weekly_report(tasks: list[Task]) -> str:
         lines.append(f"   • Sắp tới hạn (1-3 ngày): {stat['due_soon']}")
         lines.append("")
     
-    lines.append("=" * 50)
-    lines.append("📝 LƯU Ý: Báo cáo tuần là ảnh chụp hiện trạng")
-    lines.append("   (Sheet chưa có cột 'Ngày hoàn thành' để thống kê việc hoàn thành trong tuần)")
     lines.append("=" * 50)
     lines.append("🤖 Báo cáo tự động từ Telegram Bot")
     

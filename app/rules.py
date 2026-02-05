@@ -139,7 +139,7 @@ def parse_sheet_row(row: list[str], row_index: int) -> Optional[Task]:
         return None
     
     # Pad row with empty strings if needed
-    while len(row) < 7:
+    while len(row) < 8:
         row.append('')
     
     # Skip if essential fields are empty
@@ -153,6 +153,10 @@ def parse_sheet_row(row: list[str], row_index: int) -> Optional[Task]:
     deadline_raw = row[4].strip() if len(row) > 4 else ''
     deadline = parse_deadline(deadline_raw)
     
+    # Parse ngày hoàn thành
+    ngay_hoan_thanh_raw = row[6].strip() if len(row) > 6 else ''
+    ngay_hoan_thanh = parse_deadline(ngay_hoan_thanh_raw)  # Reuse same parser
+    
     # Create task
     task = Task(
         stt=row[0].strip(),
@@ -162,7 +166,9 @@ def parse_sheet_row(row: list[str], row_index: int) -> Optional[Task]:
         deadline=deadline,
         deadline_raw=deadline_raw,
         ket_qua=row[5].strip() if len(row) > 5 else '',
-        ghi_chu=row[6].strip() if len(row) > 6 else ''
+        ngay_hoan_thanh=ngay_hoan_thanh,
+        ngay_hoan_thanh_raw=ngay_hoan_thanh_raw,
+        ghi_chu=row[7].strip() if len(row) > 7 else ''
     )
     
     # Classify task
