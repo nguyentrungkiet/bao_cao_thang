@@ -2,6 +2,7 @@
 Main entry point for the Telegram Bot.
 """
 
+import asyncio
 import logging
 import sys
 from telegram.ext import Application
@@ -93,4 +94,11 @@ def main():
 if __name__ == "__main__":
     # Import Update here to avoid circular import
     from telegram import Update
+    
+    # Create event loop for Python 3.14+ compatibility
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    
     main()
