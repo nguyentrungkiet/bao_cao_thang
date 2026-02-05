@@ -123,13 +123,13 @@ class WordReportGenerator:
             para.runs[0].italic = True
             return
         
-        # Create table
-        table = doc.add_table(rows=1, cols=6)
+        # Create table with 7 columns (added "Ngày hoàn thành")
+        table = doc.add_table(rows=1, cols=7)
         table.style = 'Light Grid Accent 1'
         
         # Header row
         header_cells = table.rows[0].cells
-        headers = ['STT', 'Họ tên', 'Nội dung công việc', 'Mức độ', 'Deadline', 'Tiến độ']
+        headers = ['STT', 'Họ tên', 'Nội dung công việc', 'Mức độ', 'Deadline', 'Tiến độ', 'Ngày HT']
         
         for i, header in enumerate(headers):
             cell = header_cells[i]
@@ -151,6 +151,22 @@ class WordReportGenerator:
             row_cells[3].text = task.muc_do or ''
             row_cells[4].text = task.deadline.strftime('%d/%m/%Y') if task.deadline else ''
             row_cells[5].text = task.ket_qua or ''
+            
+            # Ngày hoàn thành with comparison to deadline
+            if task.ngay_hoan_thanh:
+                ngay_ht_text = task.ngay_hoan_thanh.strftime('%d/%m/%Y')
+                # Calculate early/late days if both dates exist
+                if task.deadline and task.ngay_hoan_thanh:
+                    days_diff = (task.deadline - task.ngay_hoan_thanh).days
+                    if days_diff > 0:
+                        ngay_ht_text += f"\n(Sớm {days_diff} ngày)"
+                    elif days_diff < 0:
+                        ngay_ht_text += f"\n(Trễ {abs(days_diff)} ngày)"
+                    else:
+                        ngay_ht_text += "\n(Đúng hạn)"
+                row_cells[6].text = ngay_ht_text
+            else:
+                row_cells[6].text = ''
             
             # Format data cells
             for cell in row_cells:

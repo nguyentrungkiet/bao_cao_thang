@@ -54,8 +54,22 @@ def build_task_line(task: Task, show_person: bool = True, show_days_overdue: boo
     if task.deadline:
         parts.append(f"📅 {format_date(task.deadline)}")
     
-    # Days overdue
-    if show_days_overdue and task.days_overdue > 0:
+    # Days overdue or completion status
+    if task.is_completed and task.ngay_hoan_thanh and task.deadline:
+        # For completed tasks, show early/late status
+        days_diff = (task.deadline - task.ngay_hoan_thanh).days
+        completion_date = format_date(task.ngay_hoan_thanh)
+        if days_diff > 0:
+            parts.append(f"✅ Hoàn thành {completion_date} (Sớm {days_diff} ngày)")
+        elif days_diff < 0:
+            parts.append(f"✅ Hoàn thành {completion_date} (Trễ {abs(days_diff)} ngày)")
+        else:
+            parts.append(f"✅ Hoàn thành {completion_date} (Đúng hạn)")
+    elif task.is_completed and task.ngay_hoan_thanh:
+        # Has completion date but no deadline
+        parts.append(f"✅ Hoàn thành {format_date(task.ngay_hoan_thanh)}")
+    elif show_days_overdue and task.days_overdue > 0:
+        # For incomplete overdue tasks
         parts.append(f"⚠️ Trễ {task.days_overdue} ngày")
     
     return " | ".join(parts)
