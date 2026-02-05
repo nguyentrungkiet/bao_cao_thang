@@ -514,17 +514,11 @@ def setup_handlers(application):
         pattern="^(word_daily|word_weekly|word_overdue|back_to_main)$"
     ))
     
-    # Persistent menu text handler
-    application.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex("^(📌 Hôm nay|⏰ Quá hạn|⚠️ Sắp hạn|📊 Báo cáo tuần|🔎 Tìm kiếm|📄 Menu Word|🔄 Làm mới|ℹ️ Trợ giúp)$"),
-        persistent_menu_handler
-    ))
-    
-    # Conversation handler for search
+    # Conversation handler for search (MUST be added BEFORE persistent menu handler)
     search_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(menu_callback, pattern="^menu_search$"),
-            MessageHandler(filters.TEXT & filters.Regex("^🔎 Tìm kiếm$"), persistent_menu_handler)
+            MessageHandler(filters.TEXT & filters.Regex("^🔎 Tìm kiếm$"), search_start)
         ],
         states={
             WAITING_FOR_KEYWORD: [
@@ -535,5 +529,11 @@ def setup_handlers(application):
         conversation_timeout=120  # 2 minutes timeout
     )
     application.add_handler(search_conv)
+    
+    # Persistent menu text handler (must be AFTER conversation handler)
+    application.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^(📌 Hôm nay|⏰ Quá hạn|⚠️ Sắp hạn|📊 Báo cáo tuần|📄 Menu Word|🔄 Làm mới|ℹ️ Trợ giúp)$"),
+        persistent_menu_handler
+    ))
     
     logger.info("Bot handlers setup complete")
