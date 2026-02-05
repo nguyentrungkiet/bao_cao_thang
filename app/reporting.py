@@ -408,7 +408,8 @@ def build_search_results(tasks: list[Task], keyword: str) -> str:
     
     for i, task in enumerate(tasks[:15], 1):
         lines.append(f"{i}. {build_task_line(task, show_person=True, show_days_overdue=(task.status == TaskStatus.OVERDUE))}")
-        if task.status != TaskStatus.NO_DEADLINE:
+        # Only show status for incomplete tasks
+        if not task.is_completed and task.status != TaskStatus.NO_DEADLINE:
             status_text = {
                 TaskStatus.OVERDUE: "🚨 Trễ hạn",
                 TaskStatus.DUE_TODAY: "⏰ Hôm nay",
